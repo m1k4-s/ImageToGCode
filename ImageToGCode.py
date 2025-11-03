@@ -1,6 +1,7 @@
 from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
 
 # ==========================
 # CONFIGURATION
@@ -11,7 +12,7 @@ PAGE_WIDTH = 148                # A5 width in mm
 PAGE_HEIGHT = 210               # A5 height in mm
 FEED_RATE = 800                 # mm/min
 DENSE_SPACING = 0.5             # mm for darkest level
-NUM_GRAY_LEVELS = 4             # number of shading bands
+NUM_GRAY_LEVELS = 4             # number of shading bands for G-code
 
 # Pen macros
 PEN_DOWN = "M3;S0"
@@ -54,38 +55,45 @@ def pixel_to_mm(x, y, img_width, img_height, page_width, page_height):
     scale_y = page_height / img_height
     return x * scale_x, y * scale_y
 
-def show_hatch_preview(img_array):
-    """Display a readable preview of hatch shading."""
+def show_hatch_preview(img_array, step=6):
+    """Preview with single diagonal hatching plus outlines."""
+    # Normalize image to 0-1
+    gray = img_array.astype(float)
+    gray -= gray.min()
+    if gray.max() > 0:
+        gray /= gray.max()
+    norm = 1 - gray  # invert: dark = higher density
+
     height, width = img_array.shape
     fig, ax = plt.subplots(figsize=(6, 8))
-    ax.imshow(np.ones_like(img_array) * 255, cmap='gray')
-
-    # normalize to 0–1
-    norm = (img_array - img_array.min()) / (img_array.max() - img_array.min() + 1e-6)
-
-    # invert so dark = 1, light = 0 (easier to think in density)
-    norm = 1.0 - norm
-
-    # divide into discrete tone bands
-    levels = np.linspace(0, 1, NUM_GRAY_LEVELS + 1)
-    preview_spacing = np.linspace(14, 4, NUM_GRAY_LEVELS, dtype=int)  # lighter→darker
-
-    for i in range(NUM_GRAY_LEVELS):
-        # pixels in this band only
-        mask = (norm >= levels[i]) & (norm < levels[i + 1])
-        spacing = preview_spacing[i]
-
-        # draw short diagonal hatch marks sparsely
-        ys, xs = np.nonzero(mask[::spacing, ::spacing])
-        for y, x in zip(ys * spacing, xs * spacing):
-            ax.plot([x, x + spacing], [y, y + spacing],
-                    color='black', linewidth=0.4, alpha=0.8)
-
     ax.set_xlim(0, width)
     ax.set_ylim(height, 0)
     ax.set_aspect('equal')
-    ax.set_axis_off()
-    plt.title("Hatch Preview")
+    ax.axis("off")
+
+    # --- Hatch lines ---
+    segments = []
+    for y in range(0, height, step):
+        for x in range(0, width, step):
+            density = norm[y, x]
+            lines = int(1 + 3 * density)  # 1–4 lines
+            for i in range(lines):
+                segments.append([(x, y + i), (x + step, y + i + step)])  # only main diagonal
+
+    if len(segments) > 0:
+        lc = LineCollection(segments, colors='black', linewidths=0.4, alpha=0.8)
+        ax.add_collection(lc)
+
+    # --- Outline detection ---
+    edges = np.zeros_like(norm)
+    edges[1:-1, 1:-1] = np.abs(norm[1:-1, 1:-1] - norm[0:-2, 1:-1]) + \
+                        np.abs(norm[1:-1, 1:-1] - norm[1:-1, 0:-2])
+    edge_coords = np.argwhere(edges > 0.1)  # sensitivity threshold
+
+    for y, x in edge_coords:
+        ax.plot([x, x+1], [y, y+1], color='black', linewidth=0.5)
+
+    plt.title("Hatch Preview with Outlines")
     plt.tight_layout()
     plt.show()
 
@@ -98,18 +106,19 @@ img = Image.open(INPUT_IMAGE).convert("L")
 img = scale_image(img, PAGE_WIDTH, PAGE_HEIGHT)
 img_array = np.array(img)
 img_width, img_height = img.size
+print(f"Image loaded: {img_width}x{img_height}")
 
-# thresholds for G-code hatching
+# G-code parameters
 gray_thresholds = [64, 128, 192, 256]
 spacing_levels = [DENSE_SPACING * (i + 1) for i in range(NUM_GRAY_LEVELS)]
 
 # --- PREVIEW ---
 print("Generating preview...")
-preview_width = 400
+preview_width = 300  # smaller = faster
 preview_height = int(preview_width * img_height / img_width)
 preview_img = img.resize((preview_width, preview_height), Image.Resampling.LANCZOS)
 preview_array = np.array(preview_img)
-show_hatch_preview(preview_array)
+show_hatch_preview(preview_array, step=6)
 
 # --- G-CODE GENERATION ---
 print("Generating G-code...")
@@ -132,4 +141,4 @@ with open(OUTPUT_GCODE, "w") as f:
             f.write(f"G1 X{x1:.2f} Y{y1:.2f} F{FEED_RATE}\n")
             f.write(f"{PEN_UP}\n")
 
-print(f"\n✅ Done! G-code saved to: {OUTPUT_GCODE}")
+print(f" G-code saved to: {OUTPUT_GCODE}")
