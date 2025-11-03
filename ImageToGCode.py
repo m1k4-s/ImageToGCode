@@ -3,22 +3,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 
-# ==========================
-# CONFIGURATION
-# ==========================
-INPUT_IMAGE = "input.jpg"       # Input image file
-OUTPUT_GCODE = "output.gcode"   # Output G-code file
-PAGE_WIDTH = 148                # A5 width in mm
-PAGE_HEIGHT = 210               # A5 height in mm
-FEED_RATE = 800                 # mm/min
-STEP = 0.5                      # Hatch spacing in mm (controls density)
-PREVIEW_WIDTH = 300             # Pixels for preview
+# CONFIGURATION:
+
+INPUT_IMAGE = "input.jpg"       # Input image file, watch out for correct labeling
+OUTPUT_GCODE = "output.gcode"   # Output G-code file, also watch out, may overwrite previous output
+PAGE_WIDTH = 135                # maximum width in mm
+PAGE_HEIGHT = 210               # height in mm
+FEED_RATE = 800                 # may be set to 1000 
+STEP = 0.5                      # Hatch spacing for darkest tone
+PREVIEW_WIDTH = 300             # Pixels for preview, set lower for faster interpreting
 PEN_DOWN = "M3;S0"
 PEN_UP = "M5;S180"
 
-# ==========================
-# HELPER FUNCTIONS
-# ==========================
+# PREVIEW SETTINGS:
 
 def scale_image(img, max_width, max_height):
     """Scale image to fit within max_width x max_height while keeping aspect ratio."""
@@ -97,9 +94,9 @@ def show_hatch_preview(img_array, step_px=6):
     plt.tight_layout()
     plt.show()
 
-# ==========================
-# MAIN SCRIPT
-# ==========================
+
+# MAIN:
+
 
 print("Loading image...")
 img = Image.open(INPUT_IMAGE).convert("L")
@@ -132,4 +129,4 @@ with open(OUTPUT_GCODE, "w") as f:
         f.write(f"G1 X{x1:.2f} Y{y1:.2f} F{FEED_RATE}\n")
         f.write(f"{PEN_UP}\n")
 
-print(f"\n G-code saved to: {OUTPUT_GCODE}")
+print(f"\n Yey, G-code saved to: {OUTPUT_GCODE}")
