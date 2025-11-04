@@ -7,15 +7,15 @@ from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
 import os
 
-# ---------------- CONFIGURATION ----------------
-PAGE_WIDTH = 135   # mm
-PAGE_HEIGHT = 210  # mm
-FEED_RATE = 800    # mm/min
-STEP = 0.5         # fill line spacing in mm
-PEN_DOWN = "M3;S0"
-PEN_UP = "M5;S180"
+# SETUP:
+PAGE_WIDTH = 135   # may need to be reduced to 130mm
+PAGE_HEIGHT = 210  
+FEED_RATE = 800    # may be increased
+STEP = 0.5         # may be increased depending on pen width
+PEN_DOWN = "M3;S0" # depending on servo S40
+PEN_UP = "M5;S180" # depending on servo S140
 
-# ---------------- IMAGE HELPERS ----------------
+
 def scale_image(img, max_width, max_height):
     w, h = img.size
     scale = min(max_width / w, max_height / h)
@@ -26,7 +26,6 @@ def pixel_to_mm(x, y, img_w, img_h, page_w, page_h):
     scale_y = page_h / img_h
     return x * scale_x, (img_h - y) * scale_y
 
-# ---------------- FILL & OUTLINE GENERATION ----------------
 def generate_outline(img_array):
     contours = measure.find_contours(1 - img_array, 0.5)
     lines = []
@@ -57,7 +56,7 @@ def generate_fill_lines(img_array, spacing_px):
             lines.append(((start_x, y), (width - 1, y)))
     return lines
 
-# ---------------- PREVIEW ----------------
+# PREVIEW:
 def show_preview(lines, width, height):
     fig, ax = plt.subplots(figsize=(6, 8))
     ax.set_xlim(0, width)
@@ -70,7 +69,7 @@ def show_preview(lines, width, height):
     plt.tight_layout()
     plt.show()
 
-# ---------------- G-CODE GENERATION ----------------
+# G-CODE GENERATION:
 def generate_gcode(img, output_path):
     img_array = np.array(img.convert("L")) / 255.0
     spacing_px = max(1, int((STEP / PAGE_WIDTH) * img_array.shape[1]))
@@ -91,7 +90,7 @@ def generate_gcode(img, output_path):
             f.write(f"G1 X{x1:.2f} Y{y1:.2f} F{FEED_RATE}\n")
             f.write(f"{PEN_UP}\n")
 
-# ---------------- GUI ----------------
+# GUI:
 def select_image():
     file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.png *.jpg *.jpeg")])
     if not file_path:
@@ -104,20 +103,20 @@ def select_image():
         preview_img = img.resize((preview_width, preview_height), Image.Resampling.LANCZOS)
         preview_array = np.array(preview_img) / 255.0
 
-        # Preview hatch/fill
+        # Hatch
         spacing_px = 1
         outline_lines = generate_outline(preview_array)
         fill_lines = generate_fill_lines(preview_array, spacing_px)
         all_lines = outline_lines + fill_lines
         show_preview(all_lines, preview_array.shape[1], preview_array.shape[0])
 
-        # Save dialog
+        # Save 
         output_file = filedialog.asksaveasfilename(defaultextension=".gcode",
                                                    filetypes=[("G-code files", "*.gcode")],
                                                    initialfile="output.gcode")
         if output_file:
             generate_gcode(img, output_file)
-            messagebox.showinfo("Done!", f"G-code saved to:\n{output_file}")
+            messagebox.showinfo("YEY", f"G-code saved to:\n{output_file}")
     except Exception as e:
         messagebox.showerror("Error", str(e))
 

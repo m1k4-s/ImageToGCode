@@ -5,20 +5,18 @@ from matplotlib.collections import LineCollection
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-# ==========================
-# CONFIGURATION
-# ==========================
-PAGE_WIDTH = 135
-PAGE_HEIGHT = 210
-FEED_RATE = 800
-STEP = 0.5
-PREVIEW_WIDTH = 300
-PEN_DOWN = "M3;S0"
-PEN_UP = "M5;S180"
 
-# ==========================
-# HELPER FUNCTIONS
-# ==========================
+# SETUP:
+
+PAGE_WIDTH = 135     # may need to be reduced to 130mm
+PAGE_HEIGHT = 210
+FEED_RATE = 800      # may be increased
+STEP = 0.5           # may be increased depending on pen width
+PREVIEW_WIDTH = 300  # preview with matplotlib
+PEN_DOWN = "M3;S0"   # depending on servo S40
+PEN_UP = "M5;S180"   # depending on servo S140
+
+
 
 def scale_image(img, max_width, max_height):
     w, h = img.size
@@ -106,9 +104,9 @@ def generate_gcode(img, output_file):
             f.write(f"G1 X{x1:.2f} Y{y1:.2f} F{FEED_RATE}\n")
             f.write(f"{PEN_UP}\n")
 
-# ==========================
-# GUI
-# ==========================
+
+# GUI:
+
 
 def select_image():
     file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.png *.jpg *.jpeg")])
